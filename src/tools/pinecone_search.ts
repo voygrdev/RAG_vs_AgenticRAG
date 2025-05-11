@@ -24,14 +24,13 @@ const vectorStore = await PineconeStore.fromExistingIndex(
 
 export async function pineconeSearch(query:string):Promise<string>{
 
-
-    console.log("Performing Pinecone Cosine Similarity Search")
+    // console.log("Performing Pinecone Cosine Similarity Search")
 
     const pineconeSimilaritySearch = await vectorStore.similaritySearch(query,5);
 
-    console.log(pineconeSimilaritySearch)
+    // console.log(pineconeSimilaritySearch)
 
-    console.log("Performing Cohere Rerank")
+    // console.log("Performing Cohere Rerank")
 
     const cohereRerank = new CohereRerank({
         apiKey: process.env.COHERE_API_KEY,
@@ -47,16 +46,16 @@ export async function pineconeSearch(query:string):Promise<string>{
     );
 
     rerankedDocuments.forEach((doc, index) => {
-        console.log(`\nReranked Document ${index + 1}:`);
-        console.log('Content:', pineconeSimilaritySearch[doc.index]?.pageContent);
-        console.log('Relevance Score:', doc.relevanceScore);
+        // console.log(`\nReranked Document ${index + 1}:`);
+        // console.log('Content:', pineconeSimilaritySearch[doc.index]?.pageContent);
+        // console.log('Relevance Score:', doc.relevanceScore);
     });
 
     const formattedResults = rerankedDocuments.map(doc => ({
         content:pineconeSimilaritySearch[doc.index]?.pageContent,
     }))
 
-    console.log(formattedResults)
+    // console.log(formattedResults)
 
     return formattedResults.map(doc => doc.content).join("\n");
 }
