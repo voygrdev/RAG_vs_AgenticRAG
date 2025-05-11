@@ -10,7 +10,7 @@ dotenv.config({ path: "../../.env" });
 const groqmodel = new ChatGroq({
     model:"deepseek-r1-distill-llama-70b",
     apiKey: process.env.GROQ_KEY,
-    temperature: 0.3,
+    temperature: 0.1,
 })
 
 const pineconeTool = async (query:string) => {
@@ -26,27 +26,57 @@ const tools = () => [
     })
 ]
 
-const executeTraditionalRAG = async (query:string) => {
+const queryWriter = async (query:string) => {
+    const result = await groqmodel.invoke(`
+        You are a Query Writer Agent.
+        You will be provided with a ${query} you need to rewrite the query with correct grammar and punctuation.
+        you need to return the updated query in string format.
+        You need to only return the updated query and nothing else.
+    `)
+    return result.content;
+}
+
+
+
+const relevanceChecker = async (query:string,result:string) => {
+    const structuredRelevanceResult = await groqmodel.invoke(`
+        You are a Relevance Checker Agent.
+        You will be provided with a ${query} and a ${result}.
+        You need to check if the ${result} is relevant to the ${query} and you need to rate the relevance of the ${result} to the ${query} on a scale of 1 to 10.
+        You need to return the result with only number between 1 and 10 in string format.
+    `)
+    return structuredRelevanceResult.content;
+}
+
+const executeAgenticRAG = async (query:string) => {
+    const queryWriterResult = await queryWriter(query)
+
+    console.log(queryWriterResult)
+
     const agent = createReactAgent({
         llm: groqmodel,
         tools: tools(),
         prompt: new SystemMessage(`
             You are a PDF analyzer.You are being provided with only one tool which is the Pinecone Search tool.
-            You are given a ${query} and you need to search for the most relevant information in the Pinecone index.
+            You are given a ${queryWriterResult} and you need to search for the most relevant information in the Pinecone index.
             And compulsorily return the answer based on the information provided by the Pinecone Search tool.
             If the information retrived from the Pinecone Search tool is not having proper relevance to the ${query},
             then you need to return "Ask question related to the provided PDF"
         `)
     })
 
-    console.log("Agent is being executed")
     const result = await agent.invoke({ messages:query})
-    //@ts-ignore
     const lastAIMessage = result.messages.find(msg => msg instanceof AIMessage);
     console.log(lastAIMessage?.content);
 
+    const relevanceCheckerResult = await relevanceChecker(query,String(lastAIMessage?.content));
 
-    return lastAIMessage?.content;
+    console.log("Final result: ")
+    console.log(result)
+    console.log(relevanceCheckerResult)
+
+    return relevanceCheckerResult
 }
 
-executeTraditionalRAG("what is the he interest free credit period")
+executeAgenticRAG("what is the interest free credit period")
+
